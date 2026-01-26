@@ -1,15 +1,219 @@
-// Pages - All site pages
-import { CSS, HEADER, FOOTER, layout } from '../templates/base.js';
+// Pages - All site pages including auth
+import { layout } from '../templates/base.js';
 
-export async function home(env) {
-  // Fetch stats from D1
+// ============ AUTH PAGES ============
+
+export function login(user, error = null) {
+  if (user) {
+    // Already logged in, show redirect
+    return layout('Redirecting...', 'Already logged in', `
+      <section class="hero">
+        <div class="container">
+          <p>You're already logged in.</p>
+          <a href="/dashboard" class="btn btn-primary">Go to Dashboard →</a>
+        </div>
+      </section>
+      <script>window.location.href = '/dashboard';</script>
+    `);
+  }
+
+  return authPage('Login', 'Sign in to your account', `
+    <form method="POST" class="auth-form">
+      ${error ? `<div class="error-msg">${error}</div>` : ''}
+      <div class="form-group">
+        <label for="email">Email</label>
+        <input type="email" id="email" name="email" required autocomplete="email" autofocus>
+      </div>
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input type="password" id="password" name="password" required autocomplete="current-password">
+      </div>
+      <button type="submit" class="btn btn-primary btn-full">Sign In</button>
+    </form>
+    <p class="auth-switch">Don't have an account? <a href="/signup">Sign up</a></p>
+  `);
+}
+
+export function signup(user, error = null) {
+  if (user) {
+    return layout('Redirecting...', 'Already logged in', `
+      <section class="hero">
+        <div class="container">
+          <p>You're already logged in.</p>
+          <a href="/dashboard" class="btn btn-primary">Go to Dashboard →</a>
+        </div>
+      </section>
+      <script>window.location.href = '/dashboard';</script>
+    `);
+  }
+
+  return authPage('Sign Up', 'Create your account', `
+    <form method="POST" class="auth-form">
+      ${error ? `<div class="error-msg">${error}</div>` : ''}
+      <div class="form-group">
+        <label for="name">Name <span class="optional">(optional)</span></label>
+        <input type="text" id="name" name="name" autocomplete="name">
+      </div>
+      <div class="form-group">
+        <label for="email">Email</label>
+        <input type="email" id="email" name="email" required autocomplete="email">
+      </div>
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input type="password" id="password" name="password" required autocomplete="new-password" minlength="8">
+        <span class="hint">At least 8 characters</span>
+      </div>
+      <button type="submit" class="btn btn-primary btn-full">Create Account</button>
+    </form>
+    <p class="auth-switch">Already have an account? <a href="/login">Sign in</a></p>
+  `);
+}
+
+export async function dashboard(user, env) {
+  // Fetch some stats for the dashboard
+  let stats = { agents: '1000', domains: '21', github_orgs: '16', repositories: '40+' };
+  let recentDomains = [];
+  let userCount = 0;
+  
+  try {
+    const statsResult = await env.DB.prepare('SELECT key, value FROM stats').all();
+    for (const row of statsResult.results) stats[row.key] = row.value;
+    
+    const domainsResult = await env.DB.prepare('SELECT name FROM domains ORDER BY created_at DESC LIMIT 5').all();
+    recentDomains = domainsResult.results.map(d => d.name);
+    
+    const usersResult = await env.DB.prepare('SELECT COUNT(*) as count FROM users').first();
+    userCount = usersResult?.count || 0;
+  } catch (e) {}
+
+  return dashboardLayout(user, 'Dashboard', `
+    <div class="dashboard-header">
+      <h1>Welcome back${user.name ? `, ${user.name}` : ''}</h1>
+      <p class="text-muted">${user.email}</p>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-value">${stats.agents}</div>
+        <div class="stat-label">AI Agents</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">${stats.domains}</div>
+        <div class="stat-label">Domains</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">${stats.github_orgs}</div>
+        <div class="stat-label">GitHub Orgs</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">${userCount}</div>
+        <div class="stat-label">Users</div>
+      </div>
+    </div>
+
+    <div class="dashboard-grid">
+      <div class="dash-card">
+        <h3>Quick Links</h3>
+        <div class="quick-links">
+          <a href="/ecosystem" class="quick-link">🔧 Ecosystem</a>
+          <a href="/github" class="quick-link">🐙 GitHub Orgs</a>
+          <a href="/domains" class="quick-link">🌐 Domains</a>
+          <a href="/templates" class="quick-link">📦 Templates</a>
+          <a href="/design" class="quick-link">🎨 Design System</a>
+          <a href="/settings" class="quick-link">⚙️ Settings</a>
+        </div>
+      </div>
+
+      <div class="dash-card">
+        <h3>Recent Domains</h3>
+        <ul class="domain-list">
+          ${recentDomains.map(d => `<li><code>${d}</code></li>`).join('') || '<li class="empty">No domains yet</li>'}
+        </ul>
+        <a href="/domains" class="view-all">View all →</a>
+      </div>
+
+      <div class="dash-card">
+        <h3>API Access</h3>
+        <div class="api-info">
+          <p>Your endpoints:</p>
+          <code class="endpoint">GET /api/me</code>
+          <code class="endpoint">GET /api/stats</code>
+          <code class="endpoint">GET /api/domains</code>
+          <code class="endpoint">GET /api/orgs</code>
+        </div>
+      </div>
+    </div>
+  `);
+}
+
+export function settings(user, error = null, success = null) {
+  return dashboardLayout(user, 'Settings', `
+    <div class="dashboard-header">
+      <h1>Settings</h1>
+      <p class="text-muted">Manage your account</p>
+    </div>
+
+    <div class="settings-grid">
+      <div class="settings-card">
+        <h3>Profile</h3>
+        <form method="POST" class="settings-form">
+          ${error ? `<div class="error-msg">${error}</div>` : ''}
+          ${success ? `<div class="success-msg">${success}</div>` : ''}
+          
+          <div class="form-group">
+            <label for="email">Email</label>
+            <input type="email" id="email" value="${user.email}" disabled>
+            <span class="hint">Email cannot be changed</span>
+          </div>
+          
+          <div class="form-group">
+            <label for="name">Name</label>
+            <input type="text" id="name" name="name" value="${user.name || ''}" placeholder="Your name">
+          </div>
+          
+          <button type="submit" class="btn btn-primary">Save Changes</button>
+        </form>
+      </div>
+
+      <div class="settings-card">
+        <h3>Change Password</h3>
+        <form method="POST" class="settings-form">
+          <div class="form-group">
+            <label for="current_password">Current Password</label>
+            <input type="password" id="current_password" name="current_password">
+          </div>
+          
+          <div class="form-group">
+            <label for="new_password">New Password</label>
+            <input type="password" id="new_password" name="new_password" minlength="8">
+            <span class="hint">At least 8 characters</span>
+          </div>
+          
+          <button type="submit" class="btn btn-ghost">Update Password</button>
+        </form>
+      </div>
+
+      <div class="settings-card danger-zone">
+        <h3>Account</h3>
+        <p class="text-muted">Role: <strong>${user.role || 'user'}</strong></p>
+        <a href="/logout" class="btn btn-danger">Sign Out</a>
+      </div>
+    </div>
+  `);
+}
+
+// ============ PUBLIC PAGES ============
+
+export async function home(env, user) {
   let stats = { agents: '1,000', domains: '21', github_orgs: '16', repositories: '40+' };
   try {
     const result = await env.DB.prepare('SELECT key, value FROM stats').all();
-    for (const row of result.results) {
-      stats[row.key] = row.value;
-    }
+    for (const row of result.results) stats[row.key] = row.value;
   } catch (e) {}
+
+  const authButtons = user 
+    ? `<a href="/dashboard" class="btn btn-primary">Dashboard →</a>`
+    : `<a href="/signup" class="btn btn-primary">Get Started →</a><a href="/login" class="btn btn-ghost">Sign In</a>`;
 
   return layout('The Road Ahead Is Infinite', 'Browser-native operating system for AI agent orchestration', `
     <section class="hero">
@@ -17,8 +221,7 @@ export async function home(env) {
         <h1>The Road Ahead<br><span>Is Infinite</span></h1>
         <p>Browser-native operating system for AI agent orchestration. ${stats.agents} agents. One system. Infinite possibilities.</p>
         <div class="hero-buttons">
-          <a href="/connect" class="btn btn-primary">Connect Platforms →</a>
-          <a href="/ecosystem" class="btn btn-ghost">View Ecosystem</a>
+          ${authButtons}
         </div>
       </div>
     </section>
@@ -57,34 +260,6 @@ export async function home(env) {
             <h3 class="card-title">Z-Framework</h3>
             <p class="card-desc">Z:=yx-w universal feedback. Equilibrium and adaptation unified.</p>
           </div>
-        </div>
-      </div>
-    </section>
-    
-    <section class="section" style="background: var(--gray-900);">
-      <div class="container">
-        <h2 class="section-title">Quick Links</h2>
-        <div class="cards" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
-          <a href="/instagram" class="platform-card">
-            <div class="platform-icon" style="background: linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888);">📸</div>
-            <div class="platform-info"><div class="platform-name">Instagram</div><div class="platform-desc">@blackroad.io</div></div>
-            <span class="platform-arrow">→</span>
-          </a>
-          <a href="/stripe" class="platform-card">
-            <div class="platform-icon" style="background: #635bff;">💳</div>
-            <div class="platform-info"><div class="platform-name">Stripe</div><div class="platform-desc">Payments</div></div>
-            <span class="platform-arrow">→</span>
-          </a>
-          <a href="/cloudflare" class="platform-card">
-            <div class="platform-icon" style="background: #f48120;">☁️</div>
-            <div class="platform-info"><div class="platform-name">Cloudflare</div><div class="platform-desc">Infrastructure</div></div>
-            <span class="platform-arrow">→</span>
-          </a>
-          <a href="/gh/BlackRoad-OS" class="platform-card">
-            <div class="platform-icon" style="background: #333;">🐙</div>
-            <div class="platform-info"><div class="platform-name">GitHub</div><div class="platform-desc">BlackRoad-OS</div></div>
-            <span class="platform-arrow">→</span>
-          </a>
         </div>
       </div>
     </section>
@@ -152,13 +327,10 @@ export async function ecosystem(env) {
 }
 
 export async function github(env) {
-  // Fetch orgs from D1
   let orgs = ['BlackRoad-OS', 'blackboxprogramming', 'Blackbox-Enterprises', 'BlackRoad-AI', 'BlackRoad-Archive', 'BlackRoad-Cloud', 'BlackRoad-Education', 'BlackRoad-Foundation', 'BlackRoad-Gov', 'BlackRoad-Hardware', 'BlackRoad-Interactive', 'BlackRoad-Labs', 'BlackRoad-Media', 'BlackRoad-Security', 'BlackRoad-Studio', 'BlackRoad-Ventures'];
   try {
     const result = await env.DB.prepare('SELECT name FROM github_orgs ORDER BY name').all();
-    if (result.results.length > 0) {
-      orgs = result.results.map(r => r.name);
-    }
+    if (result.results.length > 0) orgs = result.results.map(r => r.name);
   } catch (e) {}
 
   const orgCards = orgs.map(org => `
@@ -190,18 +362,12 @@ export async function github(env) {
 }
 
 export async function domains(env) {
-  // Fetch domains from D1
   let domainList = [];
   try {
     const result = await env.DB.prepare('SELECT name, primary_domain, status FROM domains ORDER BY primary_domain DESC, name').all();
     domainList = result.results;
   } catch (e) {
-    domainList = [
-      { name: 'blackroad.io', primary_domain: 1 },
-      { name: 'blackroad.systems', primary_domain: 0 },
-      { name: 'lucidia.earth', primary_domain: 0 },
-      { name: 'roadchain.io', primary_domain: 0 },
-    ];
+    domainList = [{ name: 'blackroad.io', primary_domain: 1 }, { name: 'lucidia.earth', primary_domain: 0 }];
   }
 
   const domainCards = domainList.map(d => `
@@ -355,4 +521,147 @@ export function notFound() {
       </div>
     </section>
   `);
+}
+
+// ============ LAYOUT HELPERS ============
+
+function authPage(title, subtitle, body) {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${title} — BlackRoad</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root { --gray-950: #0a0a0a; --gray-900: #171717; --gray-800: #262626; --gray-700: #404040; --gray-600: #525252; --gray-500: #737373; --gray-400: #a3a3a3; --gray-300: #d4d4d4; --gray-100: #f5f5f5; --accent-1: #ff8700; --accent-3: #ff0087; --accent-6: #1e90ff; --font-headline: 'Space Grotesk', sans-serif; --font-body: 'Inter', sans-serif; --font-mono: 'JetBrains Mono', monospace; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--gray-950); color: var(--gray-100); font-family: var(--font-body); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
+    a { color: var(--accent-6); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .auth-container { width: 100%; max-width: 400px; }
+    .auth-header { text-align: center; margin-bottom: 40px; }
+    .auth-logo { font-family: var(--font-headline); font-size: 28px; font-weight: 700; margin-bottom: 24px; }
+    .auth-logo span { background: linear-gradient(90deg, var(--accent-1), var(--accent-3), var(--accent-6)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .auth-header h1 { font-family: var(--font-headline); font-size: 32px; margin-bottom: 8px; }
+    .auth-header p { color: var(--gray-500); }
+    .auth-form { background: var(--gray-900); border: 1px solid var(--gray-800); border-radius: 12px; padding: 32px; }
+    .form-group { margin-bottom: 20px; }
+    .form-group label { display: block; font-size: 14px; font-weight: 500; margin-bottom: 8px; color: var(--gray-300); }
+    .form-group input { width: 100%; padding: 12px 14px; background: var(--gray-950); border: 1px solid var(--gray-700); border-radius: 8px; color: var(--gray-100); font-size: 15px; transition: border-color 0.15s; }
+    .form-group input:focus { outline: none; border-color: var(--accent-6); }
+    .form-group .hint { display: block; font-size: 12px; color: var(--gray-600); margin-top: 6px; }
+    .form-group .optional { color: var(--gray-600); font-weight: 400; }
+    .btn { display: inline-flex; align-items: center; justify-content: center; padding: 12px 24px; font-size: 15px; font-weight: 500; border-radius: 8px; border: none; cursor: pointer; transition: all 0.15s; }
+    .btn-primary { background: var(--gray-100); color: var(--gray-900); }
+    .btn-primary:hover { background: var(--gray-200); }
+    .btn-full { width: 100%; }
+    .error-msg { background: rgba(255, 0, 87, 0.1); border: 1px solid rgba(255, 0, 87, 0.3); color: #ff6b9d; padding: 12px 16px; border-radius: 8px; font-size: 14px; margin-bottom: 20px; }
+    .auth-switch { text-align: center; margin-top: 24px; color: var(--gray-500); font-size: 14px; }
+  </style>
+</head>
+<body>
+  <div class="auth-container">
+    <div class="auth-header">
+      <a href="/" class="auth-logo"><span>BlackRoad</span></a>
+      <h1>${title}</h1>
+      <p>${subtitle}</p>
+    </div>
+    ${body}
+  </div>
+</body>
+</html>`;
+}
+
+function dashboardLayout(user, title, body) {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${title} — BlackRoad</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root { --gray-950: #0a0a0a; --gray-900: #171717; --gray-800: #262626; --gray-700: #404040; --gray-600: #525252; --gray-500: #737373; --gray-400: #a3a3a3; --gray-300: #d4d4d4; --gray-100: #f5f5f5; --accent-1: #ff8700; --accent-3: #ff0087; --accent-6: #1e90ff; --font-headline: 'Space Grotesk', sans-serif; --font-body: 'Inter', sans-serif; --font-mono: 'JetBrains Mono', monospace; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--gray-950); color: var(--gray-100); font-family: var(--font-body); min-height: 100vh; }
+    a { color: var(--accent-6); text-decoration: none; }
+    .dash-header { padding: 16px 24px; border-bottom: 1px solid var(--gray-800); display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; background: rgba(10,10,10,0.95); backdrop-filter: blur(10px); z-index: 100; }
+    .dash-logo { font-family: var(--font-headline); font-size: 20px; font-weight: 700; }
+    .dash-logo span { background: linear-gradient(90deg, var(--accent-1), var(--accent-3), var(--accent-6)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .dash-nav { display: flex; gap: 24px; align-items: center; }
+    .dash-nav a { color: var(--gray-400); font-size: 14px; }
+    .dash-nav a:hover { color: var(--gray-100); }
+    .user-menu { display: flex; align-items: center; gap: 12px; }
+    .user-avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--gray-800); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600; }
+    .dash-content { padding: 48px; max-width: 1200px; margin: 0 auto; }
+    .dashboard-header { margin-bottom: 48px; }
+    .dashboard-header h1 { font-family: var(--font-headline); font-size: 36px; margin-bottom: 8px; }
+    .text-muted { color: var(--gray-500); }
+    .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 48px; }
+    .stat-card { background: var(--gray-900); border: 1px solid var(--gray-800); border-radius: 12px; padding: 24px; text-align: center; }
+    .stat-card .stat-value { font-family: var(--font-headline); font-size: 36px; font-weight: 700; color: var(--accent-6); }
+    .stat-card .stat-label { font-size: 13px; color: var(--gray-500); margin-top: 4px; }
+    .dashboard-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+    .dash-card { background: var(--gray-900); border: 1px solid var(--gray-800); border-radius: 12px; padding: 24px; }
+    .dash-card h3 { font-family: var(--font-headline); font-size: 16px; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--gray-800); }
+    .quick-links { display: flex; flex-direction: column; gap: 8px; }
+    .quick-link { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: var(--gray-950); border-radius: 8px; color: var(--gray-300); font-size: 14px; transition: all 0.15s; }
+    .quick-link:hover { background: var(--gray-800); color: var(--gray-100); }
+    .domain-list { list-style: none; }
+    .domain-list li { padding: 8px 0; border-bottom: 1px solid var(--gray-800); }
+    .domain-list li:last-child { border-bottom: none; }
+    .domain-list code { font-family: var(--font-mono); font-size: 13px; color: var(--gray-300); }
+    .domain-list .empty { color: var(--gray-600); font-style: italic; }
+    .view-all { display: inline-block; margin-top: 12px; font-size: 13px; color: var(--accent-6); }
+    .api-info p { color: var(--gray-500); font-size: 13px; margin-bottom: 12px; }
+    .endpoint { display: block; font-family: var(--font-mono); font-size: 12px; background: var(--gray-950); padding: 8px 12px; border-radius: 6px; margin-bottom: 8px; color: var(--gray-400); }
+    .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+    .settings-card { background: var(--gray-900); border: 1px solid var(--gray-800); border-radius: 12px; padding: 24px; }
+    .settings-card h3 { font-family: var(--font-headline); font-size: 16px; margin-bottom: 20px; }
+    .settings-form .form-group { margin-bottom: 16px; }
+    .settings-form label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; color: var(--gray-400); }
+    .settings-form input { width: 100%; padding: 10px 12px; background: var(--gray-950); border: 1px solid var(--gray-700); border-radius: 6px; color: var(--gray-100); font-size: 14px; }
+    .settings-form input:disabled { background: var(--gray-800); color: var(--gray-500); cursor: not-allowed; }
+    .settings-form input:focus { outline: none; border-color: var(--accent-6); }
+    .settings-form .hint { font-size: 11px; color: var(--gray-600); margin-top: 4px; }
+    .btn { display: inline-flex; align-items: center; justify-content: center; padding: 10px 20px; font-size: 14px; font-weight: 500; border-radius: 6px; border: none; cursor: pointer; transition: all 0.15s; }
+    .btn-primary { background: var(--gray-100); color: var(--gray-900); }
+    .btn-primary:hover { background: var(--gray-200); }
+    .btn-ghost { background: transparent; border: 1px solid var(--gray-700); color: var(--gray-300); }
+    .btn-ghost:hover { border-color: var(--gray-500); }
+    .btn-danger { background: rgba(255, 0, 87, 0.15); border: 1px solid rgba(255, 0, 87, 0.3); color: #ff6b9d; }
+    .btn-danger:hover { background: rgba(255, 0, 87, 0.25); }
+    .danger-zone { border-color: rgba(255, 0, 87, 0.2); }
+    .error-msg { background: rgba(255, 0, 87, 0.1); border: 1px solid rgba(255, 0, 87, 0.3); color: #ff6b9d; padding: 12px 16px; border-radius: 8px; font-size: 14px; margin-bottom: 16px; }
+    .success-msg { background: rgba(0, 200, 83, 0.1); border: 1px solid rgba(0, 200, 83, 0.3); color: #5dff9a; padding: 12px 16px; border-radius: 8px; font-size: 14px; margin-bottom: 16px; }
+    @media (max-width: 768px) {
+      .stats-grid { grid-template-columns: repeat(2, 1fr); }
+      .dashboard-grid { grid-template-columns: 1fr; }
+      .settings-grid { grid-template-columns: 1fr; }
+      .dash-nav { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <header class="dash-header">
+    <a href="/" class="dash-logo"><span>BlackRoad</span></a>
+    <nav class="dash-nav">
+      <a href="/dashboard">Dashboard</a>
+      <a href="/ecosystem">Ecosystem</a>
+      <a href="/github">GitHub</a>
+      <a href="/domains">Domains</a>
+      <a href="/templates">Templates</a>
+    </nav>
+    <div class="user-menu">
+      <a href="/settings" style="color: var(--gray-400);">Settings</a>
+      <a href="/logout" style="color: var(--gray-400);">Logout</a>
+      <div class="user-avatar">${(user.name || user.email)[0].toUpperCase()}</div>
+    </div>
+  </header>
+  <main class="dash-content">
+    ${body}
+  </main>
+</body>
+</html>`;
 }
