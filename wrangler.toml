@@ -1,0 +1,29 @@
+name = "blackroad-io"
+main = "src/index.js"
+compatibility_date = "2024-01-01"
+
+# Production routes
+routes = [
+  { pattern = "blackroad.io/*", zone_name = "blackroad.io" },
+  { pattern = "www.blackroad.io/*", zone_name = "blackroad.io" }
+]
+
+# KV Namespaces
+[[kv_namespaces]]
+binding = "TEMPLATES"
+id = "8df3dcbf63d94069975a6fa8ab17f313"
+
+[[kv_namespaces]]
+binding = "CONTENT"
+id = "119ac3af15724b1b93731202f2968117"  # WORLD_KV - for dynamic content
+
+# D1 Database
+[[d1_databases]]
+binding = "DB"
+database_name = "blackroad-os-main"
+database_id = "e2c6dcd9-c21a-48ac-8807-7b3a6881c4f7"
+
+# Environment variables
+[vars]
+SITE_NAME = "BlackRoad"
+SITE_URL = "https://blackroad.io"
