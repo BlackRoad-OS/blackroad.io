@@ -1,8 +1,6 @@
 // BlackRoad.io - The Hub
 // Central platform with template library and dynamic content
 
-import { router } from './lib/router.js';
-import { renderPage } from './lib/render.js';
 import { CSS, HEADER, FOOTER } from './templates/base.js';
 import * as pages from './pages/index.js';
 import * as templates from './templates/library.js';
