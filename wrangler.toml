@@ -2,13 +2,9 @@ name = "blackroad-io"
 main = "src/index.js"
 compatibility_date = "2024-01-01"
 
-# Production routes - only /platform and /api routes
-routes = [
-  { pattern = "blackroad.io/platform*", zone_name = "blackroad.io" },
-  { pattern = "www.blackroad.io/platform*", zone_name = "blackroad.io" },
-  { pattern = "blackroad.io/api/platform/*", zone_name = "blackroad.io" },
-  { pattern = "www.blackroad.io/api/platform/*", zone_name = "blackroad.io" }
-]
+# No routes - worker is available at blackroad-io.workers.dev only
+# Custom domains are handled by Cloudflare Pages for services/web
+# This worker is only for the /platform dashboard
 
 # KV Namespaces
 [[kv_namespaces]]
