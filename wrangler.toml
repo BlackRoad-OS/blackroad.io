@@ -2,10 +2,12 @@ name = "blackroad-io"
 main = "src/index.js"
 compatibility_date = "2024-01-01"
 
-# Production routes
+# Production routes - only /platform and /api routes
 routes = [
-  { pattern = "blackroad.io/*", zone_name = "blackroad.io" },
-  { pattern = "www.blackroad.io/*", zone_name = "blackroad.io" }
+  { pattern = "blackroad.io/platform*", zone_name = "blackroad.io" },
+  { pattern = "www.blackroad.io/platform*", zone_name = "blackroad.io" },
+  { pattern = "blackroad.io/api/platform/*", zone_name = "blackroad.io" },
+  { pattern = "www.blackroad.io/api/platform/*", zone_name = "blackroad.io" }
 ]
 
 # KV Namespaces
@@ -15,7 +17,7 @@ id = "8df3dcbf63d94069975a6fa8ab17f313"
 
 [[kv_namespaces]]
 binding = "CONTENT"
-id = "119ac3af15724b1b93731202f2968117"  # WORLD_KV - for dynamic content
+id = "119ac3af15724b1b93731202f2968117"
 
 # D1 Database
 [[d1_databases]]
